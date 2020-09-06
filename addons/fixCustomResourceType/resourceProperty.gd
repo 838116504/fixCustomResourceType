@@ -150,11 +150,11 @@ func _on_menu_id_pressed(p_id):
 				file.connect("file_selected", self, "_on_file_selected")
 				add_child(file)
 			file.set_mode(EditorFileDialog.MODE_OPEN_FILE)
-			var extensions := []
-			extensions = ResourceLoader.get_recognized_extensions_for_type(baseType)
+#			var extensions := []
+#			extensions = ResourceLoader.get_recognized_extensions_for_type(baseType)
 			file.clear_filters()
-			for i in extensions:
-				file.add_filter("*." + i + " ; " + i.to_upper())
+#			for i in extensions:
+#				file.add_filter("*." + i + " ; " + i.to_upper())
 			file.popup_centered_ratio()
 		OBJ_MENU_EDIT:
 			var res = get_edited_object()[get_edited_property()]
@@ -177,11 +177,11 @@ func _on_menu_id_pressed(p_id):
 						file.connect("file_selected", self, "_on_file_selected")
 						add_child(file)
 					file.set_mode(EditorFileDialog.MODE_SAVE_FILE)
-					var extensions := []
-					extensions = ResourceSaver.get_recognized_extensions(res)
+#					var extensions := []
+#					extensions = ResourceSaver.get_recognized_extensions(res)
 					file.clear_filters()
-					for i in extensions:
-						file.add_filter("*." + i + " ; " + i.to_upper())
+#					for i in extensions:
+#						file.add_filter("*." + i + " ; " + i.to_upper())
 					file.popup_centered_ratio()
 		OBJ_MENU_SHOW_IN_FILE_SYSTEM:
 			var res = get_edited_object()[get_edited_property()]
@@ -346,7 +346,7 @@ func update_property():
 		assign.text = classname
 		assign.rect_min_size = Vector2.ZERO
 		
-		editorInterface.get_resource_previewer().queue_resource_preview(res, self, "_resource_preview", res.get_instance_id())
+		editorInterface.get_resource_previewer().queue_edited_resource_preview(res, self, "_resource_preview", res.get_instance_id())
 
 func _notification(what):
 	if what == NOTIFICATION_ENTER_TREE || what == NOTIFICATION_THEME_CHANGED:
