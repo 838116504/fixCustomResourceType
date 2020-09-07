@@ -50,15 +50,16 @@ func _init():
 	
 #	add_to_group("_editor_resource_properties")
 
-func _resource_preview(p_path:String, p_preview:Texture, p_objId:int):
+func _resource_preview(p_path:String, p_preview:Texture, p_smallPreview:Texture, p_objId:int):
 	var res = get_edited_object()[get_edited_property()]
-	if res == null || not res is Object || res.get_instance_id() == p_objId || p_preview == null:
+	if res == null || not res is Resource || res.get_instance_id() != p_objId || p_preview == null:
 		return
 	
-	preview.margin_left = assign.icon.get_size().x + assign.get_stylebox("normal").get_defalt_margin(MARGIN_LEFT) + get_constant("hseparation", "Button")
+	preview.margin_left = assign.icon.get_size().x + assign.get_stylebox("normal").get_default_margin(MARGIN_LEFT) + get_constant("hseparation", "Button")
 	var thumbnailSize = editorInterface.get_editor_settings().get_setting("filesystem/file_dialog/thumbnail_size")
-	assign.rect_min_size = Vector2(preview.margin_left + thumbnailSize.x, thumbnailSize.y)
+	assign.rect_min_size = Vector2(preview.margin_left + thumbnailSize, thumbnailSize)
 	assign.text = ""
+	preview.texture = p_preview
 
 func _on_edit_pressed():
 	show_menu()
