@@ -163,10 +163,12 @@ func _on_menu_id_pressed(p_id):
 				emit_signal("resource_selected", get_edited_property(), res)
 		OBJ_MENU_CLEAR:
 			emit_changed(get_edited_property(), Object())
+			update_property()
 		OBJ_MENU_MAKE_UNIQUE:
 			var res = get_edited_object()[get_edited_property()]
 			if res:
 				emit_changed(get_edited_property(), res.duplicate())
+				update_property()
 		OBJ_MENU_SAVE:
 			var res = get_edited_object()[get_edited_property()]
 			if res:
@@ -195,6 +197,7 @@ func _on_menu_id_pressed(p_id):
 		OBJ_MENU_PASTE:
 			var res = ProjectSettings.get_setting("fixCustomResourceType/clipboard")
 			emit_changed(get_edited_property(), res)
+			update_property()
 		_:
 			var classname = menu.get_item_text(menu.get_item_index(p_id))
 			var res
@@ -206,6 +209,7 @@ func _on_menu_id_pressed(p_id):
 						break
 			if res:
 				emit_changed(get_edited_property(), res)
+				update_property()
 
 func _on_file_selected(p_path:String):
 	if file.get_mode() == EditorFileDialog.MODE_SAVE_FILE:
@@ -216,6 +220,7 @@ func _on_file_selected(p_path:String):
 		var res = ResourceLoader.load(p_path)
 		if res:
 			emit_changed(get_edited_property(), res)
+			update_property()
 
 func _on_buttons_input(p_event):
 	if p_event is InputEventMouseButton:
@@ -273,6 +278,7 @@ func drop_data_fw(p_position, p_data, p_from):
 			emit_changed(get_edited_property(), p_data["resource"])
 		elif String(p_data["type"]) == "files":
 			emit_changed(get_edited_property(), ResourceLoader.load(p_data["files"][0]))
+		update_property()
 
 func get_drag_data_fw(p_position, p_from):
 	var res = get_edited_object()[get_edited_property()]
@@ -338,7 +344,6 @@ func update_property():
 			
 			if classname == "":
 				classname = "Resource"
-				print("res = ", str(res), " script = ", str(res.get_script()))
 		
 		if icon == null && editorInterface.get_base_control().has_icon("ResourcePreloader", "EditorIcons"):
 			icon = _get_resource_icon()
