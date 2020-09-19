@@ -1,3 +1,4 @@
+tool
 extends EditorProperty
 
 const TYPE_BASE_ID = 100
@@ -15,7 +16,8 @@ var preview := TextureRect.new()
 var edit = Button.new()
 var menu := PopupMenu.new()
 var editorInterface:EditorInterface
-var baseType:String
+var baseTypes:Array = []
+var customBaseTypes:Array = []
 var file:EditorFileDialog
 
 func _init():
@@ -35,6 +37,7 @@ func _init():
 	preview.margin_top = 1
 	preview.margin_right = -1
 	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	preview.hide()
 	assign.add_child(preview)
 	
 	menu.connect("id_pressed", self, "_on_menu_id_pressed")
@@ -60,48 +63,56 @@ func _resource_preview(p_path:String, p_preview:Texture, p_smallPreview:Texture,
 	assign.rect_min_size = Vector2(preview.margin_left + thumbnailSize, thumbnailSize)
 	assign.text = ""
 	preview.texture = p_preview
+	preview.show()
 
 func _on_edit_pressed():
 	show_menu()
 
+func _get_base_type_icon(p_type:String):
+	return get_icon(p_type, "EditorIcons") if has_icon(p_type, "EditorIcons") else null
+
 func show_menu(p_pos = null):
 	menu.clear()
 	var classnames = []
-	var baseScript
+	var icons = []
+	var baseScripts
+	
+	for i in baseTypes:
+		if ClassDB.is_class_enabled(i):
+			classnames.append(i)
+			icons.append(_get_base_type_icon(i))
+		for j in ClassDB.get_inheriters_from_class(i):
+			if classnames.find(j) >= 0:
+				continue
+			classnames.append(j)
+			icons.append(_get_base_type_icon(j))
+	
 	if ProjectSettings.has_setting("_global_script_classes"):
 		var classData = ProjectSettings.get_setting("_global_script_classes")
+		baseScripts = _get_base_scripts()
 		var script
-		for i in classData:
-			if i["base"] != "Resource":
-				continue
-			if i["class"] == baseType:
-				baseScript = load(i["path"])
-				break
 		
-		if baseScript != null:
-			for i in classData:
-				if i["base"] != "Resource":
-					continue
-				script = load(i["path"])
-				if script:
-					var r = script.new()
-					if r is baseScript:
-						classnames.append(i["class"])
+		for i in classData:
+			script = load(i["path"])
+			if script:
+				var r = script.new()
+				if _is_handle_obj(r, baseScripts):
+					classnames.append(i["class"])
+		
+		if icons.size() < classnames.size():
+			if ProjectSettings.has_setting("_global_script_class_icons"):
+				var iconData = ProjectSettings.get_setting("_global_script_class_icons")
+				var dir = Directory.new()
+				for i in range(icons.size(), classnames.size()):
+					if iconData.has(classnames[i]) && iconData[classnames[i]] != "" && dir.file_exists(iconData[classnames[i]]):
+						icons.append(load(iconData[classnames[i]]))
+					else:
+						icons.append(null)
+			else:
+				icons.resize(classnames.size())
 	
 	if classnames.size() == 0:
 		return
-	
-	var icons = []
-	if ProjectSettings.has_setting("_global_script_class_icons"):
-		var iconData = ProjectSettings.get_setting("_global_script_class_icons")
-		var dir = Directory.new()
-		for i in classnames:
-			if iconData.has(i) && iconData[i] != "" && dir.file_exists(iconData[i]):
-				icons.append(load(iconData[i]))
-			else:
-				icons.append(null)
-	else:
-		icons.resize(classnames.size())
 
 	for i in classnames.size():
 		if icons[i]:
@@ -128,7 +139,7 @@ func show_menu(p_pos = null):
 	var pasteVaild := false
 	if ProjectSettings.has_setting("fixCustomResourceType/clipboard"):
 		cb = ProjectSettings.get_setting("fixCustomResourceType/clipboard")
-		if cb is baseScript:
+		if _is_handle_obj(cb, baseScripts):
 			pasteVaild = true
 	if res != null || pasteVaild:
 		menu.add_separator()
@@ -201,7 +212,10 @@ func _on_menu_id_pressed(p_id):
 		_:
 			var classname = menu.get_item_text(menu.get_item_index(p_id))
 			var res
-			if ProjectSettings.has_setting("_global_script_classes"):
+			if ClassDB.class_exists(classname):
+				if ClassDB.can_instance(classname):
+					res = ClassDB.instance(classname)
+			elif ProjectSettings.has_setting("_global_script_classes"):
 				var classData = ProjectSettings.get_setting("_global_script_classes")
 				for i in classData:
 					if i["class"] == classname:
@@ -235,35 +249,43 @@ func _on_assign_pressed():
 	else:
 		emit_signal("resource_selected", get_edited_property(), res)
 
-func get_base_script():
-	var baseScript
+func _get_base_scripts():
+	var ret = []
 	if ProjectSettings.has_setting("_global_script_classes"):
 		var classData = ProjectSettings.get_setting("_global_script_classes")
-		var script
 		for i in classData:
-			if i["base"] != "Resource":
-				continue
-			if i["class"] == baseType:
-				baseScript = i["path"]
+			if i["class"] in customBaseTypes:
+				ret.append(load(i["path"]))
 				break
-	return baseScript
+	return ret
+
+func _is_handle_obj(p_res, p_baseScripts = null) -> bool:
+	if p_res == null || not p_res is Resource:
+		return false
+	
+	for i in baseTypes:
+		if p_res.get_class() == i || ClassDB.is_parent_class(p_res.get_class(), i):
+			return true
+	
+	if p_baseScripts == null:
+		p_baseScripts = _get_base_scripts()
+	
+	for i in p_baseScripts:
+		if p_res is i:
+			return true
+	
+	return false
 
 func _is_drop_valid(p_data:Dictionary) -> bool:
 	if p_data.has("type"):
+		var res
 		if String(p_data["type"]) == "resource":
-			var res = p_data["resource"]
-			if res:
-				var baseScript = get_base_script()
-				if baseScript:
-					return res is baseScript
-			return false
+			res = p_data["resource"]
 		elif String(p_data["type"] == "files"):
 			var files = p_data["files"]
 			if files.size() == 1:
-				var res = ResourceLoader.load(files[0])
-				var baseScript = get_base_script()
-				if baseScript:
-					return res is baseScript
+				res = ResourceLoader.load(files[0])
+		return _is_handle_obj(res)
 	return false
 
 func can_drop_data_fw(p_position, p_data, p_from):
@@ -297,33 +319,39 @@ func get_drag_data_fw(p_position, p_from):
 			text.text = res.resource_path.get_file()
 		elif res.resource_name != "":
 			text.text = res.resource_name
-		elif ProjectSettings.has_setting("_global_script_classes"):
+		elif res.get_script() != null && ProjectSettings.has_setting("_global_script_classes"):
 			var classData = ProjectSettings.get_setting("_global_script_classes")
 			for i in classData:
 				if i["path"] == res.get_script().get_path():
 					text.text = i["class"]
 					break
+		else:
+			text.text = res.get_class()
 		dragPreview.add_child(text)
 		set_drag_preview(dragPreview)
 		text.rect_position = Vector2((icon.rect_size.x - text.get_minimum_size()) / 2.0, icon.rect_size.y)
 		return { "type":"resource", "resource":res, "from":p_from }
 	return null
 
-func setup(p_baseType:String):
-	baseType = p_baseType
+func setup(p_baseTypes:Array, p_customBaseTypes:Array):
+	baseTypes = p_baseTypes
+	customBaseTypes = p_customBaseTypes
 
 func _get_resource_icon():
-	return get_icon("ResourcePreloader", "EditorIcons")
+	return get_icon("ResourcePreloader", "EditorIcons") if has_icon("ResourcePreloader", "EditorIcons") else null
 
 func update_property():
 	var res = get_edited_object()[get_edited_property()]
-	if res == null:
+	if res == null || not res is Resource:
 		assign.icon = null
 		assign.text = tr("[empty]")
 	else:
 		var classname = ""
 		var icon
-		if res.get_script() is NativeScript:
+		if res.get_script() == null:
+			classname = res.get_class()
+			icon = _get_base_type_icon(classname)
+		elif res.get_script() is NativeScript:
 			classname = res.get_script().script_class_name
 			var dir = Directory.new()
 			if dir.file_exists(res.get_script().script_class_icon_path):
@@ -337,7 +365,7 @@ func update_property():
 					if i["path"] == res.get_script().get_path():
 						classname = i["class"]
 						break
-				if ProjectSettings.has_setting("_global_script_class_icons"):
+				if classname != "" && ProjectSettings.has_setting("_global_script_class_icons"):
 					var iconData = ProjectSettings.get_setting("_global_script_class_icons")
 					if iconData.has(classname) && iconData[classname] != "":
 						icon = load(iconData[classname])
@@ -345,12 +373,13 @@ func update_property():
 			if classname == "":
 				classname = "Resource"
 		
-		if icon == null && editorInterface.get_base_control().has_icon("ResourcePreloader", "EditorIcons"):
+		if icon == null:
 			icon = _get_resource_icon()
 		
 		assign.icon = icon
 		assign.text = classname
 		assign.rect_min_size = Vector2.ZERO
+		preview.hide()
 		
 		editorInterface.get_resource_previewer().queue_edited_resource_preview(res, self, "_resource_preview", res.get_instance_id())
 
