@@ -91,7 +91,6 @@ func show_menu(p_pos = null):
 		var classData = ProjectSettings.get_setting("_global_script_classes")
 		baseScripts = _get_base_scripts()
 		var script
-		
 		for i in classData:
 			script = load(i["path"])
 			if script:
@@ -248,15 +247,16 @@ func _on_assign_pressed():
 		show_menu()
 	else:
 		emit_signal("resource_selected", get_edited_property(), res)
+		editorInterface.get_inspector().refresh()
+		editorInterface.get_inspector().queue_sort()
 
 func _get_base_scripts():
 	var ret = []
-	if ProjectSettings.has_setting("_global_script_classes"):
+	if ProjectSettings.has_setting("_global_script_classes"):	
 		var classData = ProjectSettings.get_setting("_global_script_classes")
 		for i in classData:
 			if i["class"] in customBaseTypes:
 				ret.append(load(i["path"]))
-				break
 	return ret
 
 func _is_handle_obj(p_res, p_baseScripts = null) -> bool:
